@@ -1,11 +1,11 @@
 import cv2 as cv2
 import numpy as np
-from vesc import VESC
+#from vesc import VESC
 
 
 def show_image(name, img):  # function for displaying the image
     cv2.imshow(name, img)
-    cv2.waitKey(200)
+    cv2.waitKey(0)
     cv2.destroyAllWindows()
 
 
@@ -129,11 +129,11 @@ if __name__ == "__main__":
     # Set bounds for yellow line detection
     lower_yellow = np.array([20, 43, 100])
     upper_yellow = np.array([42, 255, 255])
-
+    min_value = 100
     # Instantiate vesc
-    vesc_object = VESC("/dev/ttyACM0")
+    #vesc_object = VESC("/dev/ttyACM0")
 
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture("output26.mp4")
     if cap.isOpened() == False:
         print("Error opening video stream or file")
     while cap.isOpened():
@@ -143,10 +143,10 @@ if __name__ == "__main__":
             # cv2.imshow('Frame',frame)
             image = frame  # Reading the image file
             result = np.copy(image)
-            result = cv2.resize(result, (650, 500))
-            result = cv2.GaussianBlur(result, (9, 9), 0)
-
+            cropped = cv2.resize(result, (650, 500))
+            result = cv2.GaussianBlur(cropped, (9, 9), 0)
             result = region_of_interest(result)
+            show_image("original", result)
             hsv = cv2.cvtColor(result, cv2.COLOR_BGR2HSV)
             mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
 
@@ -154,23 +154,31 @@ if __name__ == "__main__":
             lane_canny = find_canny(result, 100, 200)
             lane_lines = cv2.HoughLinesP(lane_canny, 1, np.pi / 180, 30, 40, 5)
 
-            if lane_lines:
-                (x1, y1), (x2, y2) = np.mean(lane_lines, axis=0)
-
+            if lane_lines is not None:
+              slope = 0
+              count = 0
+              for line in lane_lines:
+                count += 1
+                x1, y1, x2, y2 = line[0]
                 try:
-                    slope = (y2 - y1) / (x2 - x1)
+                  slope += (y1 - y2) / (x2 - x1)
+                  if(np.abs((y1 - y2) / (x2 - x1)) < min_value):
+                    min_value = np.abs((y1 - y2) / (x2 - x1))
                 except ZeroDivisionError:
-                    slope = 100
-
-                sign = 1 if slope > 0 else -1
-                magnitude = np.clip(0.01, 100)
-
-                turn_dir = 1 / (sign * magnitude * 100)
+                  slope += 100
+              show_image("lane_lines", draw_lines(result, lane_lines))
+              slope /= count
+              sign = 1 if slope > 0 else -1
+              magnitude = np.clip(np.abs(slope), 0.25, 100)
+              print("Slope: " + str(slope))
+              print("Turn Dir: " + str(1 / (sign * magnitude * 4)))
+              print("Curr Min: " + str(min_value))
+              turn_dir = 1 / (sign * magnitude * 4)
             else:
-                # Turn right
-                turn_dir = 1
+              # Turn right
+              turn_dir = 1
 
-            vesc_object.run(turn_dir, throttle=0.2)
+            #vesc_object.run(turn_dir, throttle=0.2)
         else:
             break
 
