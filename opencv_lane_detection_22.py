@@ -129,7 +129,6 @@ if __name__ == "__main__":
     # Set bounds for yellow line detection
     lower_yellow = np.array([20, 43, 100])
     upper_yellow = np.array([42, 255, 255])
-    min_value = 100
     # Instantiate vesc
     #vesc_object = VESC("/dev/ttyACM0")
 
@@ -172,7 +171,6 @@ if __name__ == "__main__":
               magnitude = np.clip(np.abs(slope), 0.25, 100)
               print("Slope: " + str(slope))
               print("Turn Dir: " + str(1 / (sign * magnitude * 4)))
-              print("Curr Min: " + str(min_value))
               turn_dir = 1 / (sign * magnitude * 4)
             else:
               # Turn right
